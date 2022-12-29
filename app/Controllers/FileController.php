@@ -10,6 +10,7 @@ class FileController
     private string $file_path;
     private $raw_data;
     private array $formatted_data;
+    private array $first_row;
 
     public function __construct(string $file_name)
     {
@@ -22,12 +23,6 @@ class FileController
     public static function make($file_name): static
     {
         return new static($file_name);
-    }
-
-    public function process()
-    {
-        $this->extract();
-        var_dump($this->getFormattedData());
     }
 
     public function createFilePath(): string
@@ -54,11 +49,11 @@ class FileController
                 throw new \Exception('File open failed');
             }
 
-            fgetcsv($this->raw_data);
+            $this->first_row = explode(';', (fgetcsv($this->raw_data))[0]);
 
-            while (($data_row = fgetcsv($this->raw_data)) !== false) {
+            while (($data_row = fgetcsv($this->raw_data, separator:';')) !== false) {
                 $this->formatted_data[] = array_map(function ($data_element) {
-                    return str_replace(['$', '/'], '', $data_element);
+                    return str_replace([' '], '', $data_element);
                 }, $data_row);
             }
 
@@ -70,8 +65,26 @@ class FileController
         }
     }
 
-    public function getFormattedData()
+    public function write(array $updated_file)
+    {
+        $file = fopen($this->file_path, 'w');
+
+        fprintf($file, chr(0xEF) . chr(0xBB) . chr(0xBF));
+
+        foreach ($updated_file as $line) {
+            fputcsv($file, $line, separator: ';');
+        }
+
+        fclose($file);
+    }
+
+    public function getFormattedData(): array
     {
         return $this->formatted_data;
+    }
+
+    public function getFirstRow(): array
+    {
+        return $this->first_row;
     }
 }
